@@ -113,7 +113,7 @@ class StepModel():
             jumps.append(jump)
 
             # first set rate at all times to pre-step rate
-            rate = np.ones(T) * self.x0 * self.Rh
+            rate = np.ones(T) * self.x0 * self.Rh #=R0
             # then set rates after jump to self.Rh
             rate[ts >= jump] = self.Rh
             rates.append(rate)
