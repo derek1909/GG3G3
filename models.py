@@ -133,7 +133,7 @@ class RampModel():
     def __init__(self, beta=0.5, sigma=0.2, x0=.2, Rh=50, isi_gamma_shape=None, Rl=None, dt=None):
         """
         Simulator of the Ramping Model of Latimer et al. Science 2015.
-        :param beta: drift rate of the drift-diffusion process
+        :param beta: drift rate of the drift-diffusion process=
         :param sigma: diffusion strength of the drift-diffusion process.
         :param x0: average initial value of latent variable x[0]
         :param Rh: the maximal firing rate obtained when x_t reaches 1 (corresponding to the same as the post-step
