@@ -102,16 +102,19 @@ def generate_psth(spike_trains, bin_size=20, bin_size_2=50, plot=False):
     # Calculate the variance
     bin_edges_2 = np.arange(0, 1e3, bin_size_2)
     psth_2, _ = np.histogram(np.concatenate(spike_trains_timestamp), bins=bin_edges_2)
-    averaged_psth_2 = (psth_2 / bin_size_2 * 1e3) / N # spikes per sec per trail
 
     var = np.zeros_like(averaged_psth_2)
     for ii in range(len(spike_trains_timestamp)):
         psth_p_trail, _ = np.histogram(np.array(spike_trains_timestamp[ii]), bins=bin_edges_2) 
-        var += (psth_p_trail / bin_size_2 * 1e3) ** 2 / N
-    var -= averaged_psth_2**2
+        
+        
+        
+        
+#     var += (psth_p_trail / bin_size_2 * 1e3) ** 2 / N
+#     var -= averaged_psth_2**2
 
     # Calculate Fano factor
-    fano = var / averaged_psth_2
+    fano = var / psth_2
 
     if plot:
         fig, (ax1, ax2, ax3) = plt.subplots(3)
