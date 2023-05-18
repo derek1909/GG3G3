@@ -86,7 +86,8 @@ def generate_psth(spike_trains, bin_size=20, bin_size_2=50, plot=False):
     :return: averaged PSTH, variance, Fano factor
     """
     
-    N = len(spike_trains[1]); # number of trials
+    N = spike_trains.shape[0]; # number of trials
+    print(N)
     spike_trains_timestamp = generate_raster_and_timestamps(spike_trains); # timestamps of spike trains
     
     # Calculate the PSTH
@@ -99,22 +100,28 @@ def generate_psth(spike_trains, bin_size=20, bin_size_2=50, plot=False):
     sigma = 1.5  # Standard deviation of the Gaussian filter
     gaussian_smoothed_psth = gaussian_filter(averaged_psth, sigma)
 
-    # Calculate the variance
+    # Calculate the PSTH for larger bins
     bin_edges_2 = np.arange(0, 1e3, bin_size_2)
-    psth_2, _ = np.histogram(np.concatenate(spike_trains_timestamp), bins=bin_edges_2)
+    psth_2, _ = lo_histogram(np.concatenate(spike_trains_timestamp), bins=bin_edges_2)
+    averaged_psth_2 = psth_2 / N # spikes per trail
 
-    var = np.zeros_like(averaged_psth_2)
+    var_s = np.zeros_like(averaged_psth_2)
+
+    # psth_matrix is a 2D numpy array where each row is a PSTH vector
+    psth_matrix = np.zeros((len(spike_trains_timestamp), len(averaged_psth_2))); # (N x T)
+
+    # Calculate the PSTH for each trail
     for ii in range(len(spike_trains_timestamp)):
-        psth_p_trail, _ = np.histogram(np.array(spike_trains_timestamp[ii]), bins=bin_edges_2) 
-        
-        
-        
-        
-#     var += (psth_p_trail / bin_size_2 * 1e3) ** 2 / N
-#     var -= averaged_psth_2**2
+        psth_matrix[ii], _ = lo_histogram(np.array(spike_trains_timestamp[ii]), bins=bin_edges_2)
 
-    # Calculate Fano factor
-    fano = var / psth_2
+#     print(psth_matrix.shape)
+    # Find the variance across trials (i.e., along the rows)
+    var_s = np.var(psth_matrix, axis=0);
+
+    ## Calculate Fano Factor ##
+
+    fano_factors = var_s / averaged_psth_2
+
 
     if plot:
         fig, (ax1, ax2, ax3) = plt.subplots(3)
@@ -123,8 +130,8 @@ def generate_psth(spike_trains, bin_size=20, bin_size_2=50, plot=False):
         # Plot the PSTH
         ax1.plot(bin_edges[:-1], averaged_psth,  label='Original')
         ax1.plot(bin_edges[:-1], gaussian_smoothed_psth,  label='Smoothed')
-        ax2.plot(bin_edges_2[:-1], var,  label='Variance')
-        ax3.plot(bin_edges_2[:-1], fano,  label='Fano factor')
+        ax2.plot(bin_edges_2[:-1], var_s,  label='Variance')
+        ax3.plot(bin_edges_2[:-1], fano_factors,  label='Fano factor')
 
         ax1.set_ylabel("spike rate (sp/s)")
         ax2.set_ylabel("spike rate (sp/s)")
@@ -134,7 +141,7 @@ def generate_psth(spike_trains, bin_size=20, bin_size_2=50, plot=False):
         ax2.legend()
         plt.show()
 
-    return gaussian_smoothed_psth, var, fano
+    return gaussian_smoothed_psth, var_s, fano_factors
 
 
 
