@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.random as npr
+import scipy.stats as stats
 
 
 def lo_histogram(x, bins):
@@ -228,3 +229,76 @@ class RampModel():
         else:
             return spikes, xs
 
+    def simulate_HMM(self, Ntrials=1, T=100, K=100, get_rate=True):
+        """
+        :param Ntrials: (int) number of trials
+        :param T: (int) duration of each trial in number of time-steps.
+        :param K: (int) number of states of the HMM
+        :param get_rate: whether or not to return the rate time-series
+        :return:
+        spikes: shape = (Ntrial, T); spikes[j] gives the spike train, n_t, in trial j, as
+                an array of spike counts in each time-bin (= time step)
+        xs:     shape = (Ntrial, T); xs[j] is the latent variable time-series x_t in trial j
+        rates:  shape = (Ntrial, T); rates[j] is the rate time-series, r_t, in trial j (returned only if get_rate=True)
+        """
+        # set dt (time-step duration in seconds) such that trial duration is always 1 second, regardless of T.
+        dt = 1 / T
+        self.dt = dt
+        ts = np.arange(T)
+        
+        
+        ## transition matrix
+        # calculate difference between states, forming a K x K matrix.
+        st = np.arange(K) # states
+        s_grid = st - st.reshape(-1,1) 
+        mu = self.beta * dt * (K-1)
+        std = self.sigma * np.sqrt(dt) * (K-1)
+
+        # transition matrix, last row are calculated differently
+        trans_matrix = stats.norm.pdf(s_grid, mu, std)
+        trans_matrix[-1] = 0
+        trans_matrix[-1,-1] = 1
+
+        # normalise each row
+        row_sums = trans_matrix.sum(axis=1)
+        trans_matrix = trans_matrix / row_sums[:, np.newaxis]
+
+        mu = self.x0 * (K-1)
+        std = self.sigma * np.sqrt(dt) * (K-1)
+        pi = stats.norm.pdf(st, mu, std)
+        pi = pi / np.sum(pi)
+
+
+        # NxT matrix to record states
+        states = np.zeros((Ntrials, T), dtype=int)
+        for n in range(Ntrials):
+            # Draw the initial state from the initial distribution
+            # K states, pi initial distribution. => return a scaler with initial values (discrete)
+            states[n,0] = np.random.choice(K, p=pi)
+
+            # Simulate the chain
+            for t in range(1, T):
+                # The transition probabilities depend on the current state
+                current_state = states[n,t-1]
+                states[n,t] = np.random.choice(K, p=trans_matrix[current_state])
+
+        xs = states / (K-1)
+        
+        # in each trial set x to 1 after 1st passage through 1; padding xs w 1 assures passage does happen, possibly at T+1
+        taus = np.argmax(np.hstack((xs, np.ones((xs.shape[0],1)))) >= 1., axis=-1)
+        xs = np.where(ts[None,:] >= taus[:,None], 1., xs)
+        # # the above 2 lines are equivalent to:
+        # for x in xs:
+        #     if np.sum(x >= 1) > 0:
+        #         tau = np.nonzero(x >= 1)[0][0]
+        #         x[tau:] = 1
+
+        rates = self.f_io(xs) # shape = (Ntrials, T)
+
+        spikes = np.array([self.emit(rate) for rate in rates]) # shape = (Ntrial, T)
+
+        if get_rate:
+            return spikes, xs, rates
+        else:
+            return spikes, xs
+        
